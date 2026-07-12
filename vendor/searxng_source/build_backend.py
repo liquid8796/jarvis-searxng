@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import os
+import posixpath
 import tarfile
 import tempfile
 import urllib.request
@@ -27,7 +28,25 @@ def _validate_member(member: tarfile.TarInfo) -> None:
     path = PurePosixPath(member.name)
     if path.is_absolute() or ".." in path.parts:
         raise RuntimeError(f"SearXNG archive contains an unsafe path: {member.name}")
-    if member.issym() or member.islnk():
+
+    if not (member.issym() or member.islnk()):
+        return
+
+    link = PurePosixPath(member.linkname)
+    if link.is_absolute():
+        raise RuntimeError(f"SearXNG archive contains an unsafe link: {member.name}")
+
+    # Symbolic-link targets are relative to the link's parent directory.
+    # Hard-link targets in a tar archive are relative to the archive root.
+    link_base = path.parent if member.issym() else PurePosixPath()
+    resolved_link = PurePosixPath(posixpath.normpath(str(link_base / link)))
+    archive_root = path.parts[0] if path.parts else ""
+    if (
+        resolved_link.is_absolute()
+        or ".." in resolved_link.parts
+        or not resolved_link.parts
+        or resolved_link.parts[0] != archive_root
+    ):
         raise RuntimeError(f"SearXNG archive contains an unsafe link: {member.name}")
 
 
