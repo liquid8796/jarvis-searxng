@@ -1,21 +1,20 @@
-MIT License
+# License and Source Notice
 
-Copyright (c) 2026 Fat Rat
+## Upstream SearXNG
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This project downloads and builds SearXNG from:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+- Repository: `https://github.com/searxng/searxng`
+- Pinned revision: `c19d86faa`
+- Upstream license: `AGPL-3.0-or-later`
+- License text: `https://www.gnu.org/licenses/agpl-3.0.html`
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+SearXNG copyright and attribution remain with the SearXNG contributors.
+
+## Wrapper and deployment files
+
+The wrapper and deployment-specific files in this project are intended to be distributed under `AGPL-3.0-or-later` so they can be used together with SearXNG without introducing an incompatible license.
+
+This archive does not vendor the complete SearXNG source tree. During dependency installation, `vendor/searxng_source/build_backend.py` downloads the pinned upstream source archive and builds it into a wheel.
+
+When operating a modified version over a network or distributing it, review the GNU Affero General Public License obligations, including requirements concerning availability of the corresponding source. This notice is informational and is not legal advice.

@@ -1,0 +1,35 @@
+use_default_settings: true
+
+general:
+  debug: false
+  instance_name: "SearXNG on Vercel"
+  enable_metrics: false
+  open_metrics: ""
+
+search:
+  safe_search: 1
+  autocomplete: ""
+  favicon_resolver: ""
+  default_lang: "auto"
+  formats:
+    - html
+    - json
+
+server:
+  # Overridden at runtime by the mandatory SEARXNG_SECRET environment variable.
+  secret_key: "replace-with-SEARXNG_SECRET"
+  limiter: false
+  public_instance: false
+  image_proxy: false
+  method: "GET"
+  http_protocol_version: "1.1"
+
+valkey:
+  url: false
+
+outgoing:
+  request_timeout: 4.0
+  max_request_timeout: 8.0
+  pool_connections: 20
+  pool_maxsize: 10
+  enable_http2: true

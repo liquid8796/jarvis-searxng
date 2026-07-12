@@ -1,0 +1,2 @@
+# The local PEP 517 backend downloads and builds the pinned upstream source.
+./vendor/searxng_source
