@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import importlib
+import importlib.machinery
 import io
+import sys
 import tarfile
 from pathlib import Path
 
@@ -119,3 +122,102 @@ def test_call_hook_executes_inside_upstream_source(
 
     assert result == "wheel.whl"
     assert observed == {"cwd": source_root, "value": "wheel-dir"}
+
+
+def test_call_hook_exposes_absolute_source_path_when_dot_cache_is_stale(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source_root = tmp_path / "source"
+    package_root = source_root / "searx_build_fixture"
+    package_root.mkdir(parents=True)
+    (package_root / "__init__.py").write_text(
+        "VALUE = 'loaded'\n", encoding="utf-8"
+    )
+
+    stale_root = tmp_path / "stale"
+    stale_root.mkdir()
+    stale_finder = importlib.machinery.FileFinder(
+        str(stale_root),
+        (
+            importlib.machinery.SourceFileLoader,
+            importlib.machinery.SOURCE_SUFFIXES,
+        ),
+    )
+
+    original_sys_path = list(sys.path)
+    original_dot_finder = sys.path_importer_cache.get(".")
+    sys.path_importer_cache["."] = stale_finder
+    sys.modules.pop("searx_build_fixture", None)
+
+    monkeypatch.setattr(
+        build_backend, "prepare_upstream_source", lambda: source_root
+    )
+
+    def upstream_like_hook() -> str:
+        # The pinned SearXNG setup.py prepends a relative dot. Under uv's
+        # isolated backend, that dot can retain a FileFinder for the wrapper
+        # directory from sys.path_importer_cache.
+        sys.path = ["."] + sys.path
+        module = importlib.import_module("searx_build_fixture")
+        return module.VALUE
+
+    try:
+        assert build_backend.call_upstream_hook(upstream_like_hook) == "loaded"
+        assert sys.path == original_sys_path
+    finally:
+        sys.modules.pop("searx_build_fixture", None)
+        if original_dot_finder is None:
+            sys.path_importer_cache.pop(".", None)
+        else:
+            sys.path_importer_cache["."] = original_dot_finder
+        sys.path[:] = original_sys_path
+
+
+def test_setuptools_hook_imports_upstream_searx_with_stale_dot_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source_root = tmp_path / "source"
+    package_root = source_root / "searx"
+    package_root.mkdir(parents=True)
+    (package_root / "__init__.py").write_text("", encoding="utf-8")
+    (package_root / "version.py").write_text(
+        "VERSION_TAG = '2026.7.13'\n", encoding="utf-8"
+    )
+    (source_root / "setup.py").write_text(
+        "import sys\n"
+        "sys.path = ['.'] + sys.path\n"
+        "from setuptools import find_packages, setup\n"
+        "from searx.version import VERSION_TAG\n"
+        "setup(name='searxng-fixture', version=VERSION_TAG, "
+        "packages=find_packages())\n",
+        encoding="utf-8",
+    )
+
+    stale_root = tmp_path / "stale"
+    stale_root.mkdir()
+    stale_finder = importlib.machinery.FileFinder(
+        str(stale_root),
+        (
+            importlib.machinery.SourceFileLoader,
+            importlib.machinery.SOURCE_SUFFIXES,
+        ),
+    )
+
+    original_dot_finder = sys.path_importer_cache.get(".")
+    sys.path_importer_cache["."] = stale_finder
+    sys.modules.pop("searx.version", None)
+    sys.modules.pop("searx", None)
+    monkeypatch.setattr(
+        build_backend, "prepare_upstream_source", lambda: source_root
+    )
+
+    try:
+        requirements = build_backend.get_requires_for_build_wheel({})
+        assert isinstance(requirements, list)
+    finally:
+        sys.modules.pop("searx.version", None)
+        sys.modules.pop("searx", None)
+        if original_dot_finder is None:
+            sys.path_importer_cache.pop(".", None)
+        else:
+            sys.path_importer_cache["."] = original_dot_finder

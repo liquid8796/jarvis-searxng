@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import os
 import posixpath
+import sys
 import tarfile
 import tempfile
 import urllib.request
@@ -110,11 +111,28 @@ def call_upstream_hook(
     hook: Callable[..., _Result], *args: Any, **kwargs: Any
 ) -> _Result:
     source_root = prepare_upstream_source()
+    source_path = str(source_root)
     previous_directory = Path.cwd()
+    previous_sys_path = sys.path
+    cache_missing = object()
+    previous_source_finder = sys.path_importer_cache.get(
+        source_path, cache_missing
+    )
     try:
         os.chdir(source_root)
+        # Use an absolute entry rather than relying only on ``.``.  uv loads
+        # this backend through ``backend-path = ["."]``, which can leave a
+        # stale FileFinder cached for the wrapper directory under the ``.``
+        # key.  The pinned upstream setup.py also prepends ``.`` and would
+        # otherwise fail to import its own ``searx`` package.
+        sys.path = [source_path] + sys.path
         return hook(*args, **kwargs)
     finally:
+        sys.path = previous_sys_path
+        if previous_source_finder is cache_missing:
+            sys.path_importer_cache.pop(source_path, None)
+        else:
+            sys.path_importer_cache[source_path] = previous_source_finder
         os.chdir(previous_directory)
 
 
