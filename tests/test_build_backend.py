@@ -5,6 +5,7 @@ import importlib.machinery
 import io
 import sys
 import tarfile
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -221,3 +222,78 @@ def test_setuptools_hook_imports_upstream_searx_with_stale_dot_cache(
             sys.path_importer_cache.pop(".", None)
         else:
             sys.path_importer_cache["."] = original_dot_finder
+
+
+def test_prepare_upstream_source_generates_frozen_runtime_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    payload = _archive_bytes(
+        ("searxng-c19d86faa/setup.py", b"from setuptools import setup\n"),
+        ("searxng-c19d86faa/searx/__init__.py", b""),
+        (
+            "searxng-c19d86faa/searx/version.py",
+            b"import importlib\n"
+            b"vf = importlib.import_module('searx.version_frozen')\n"
+            b"VERSION_STRING = vf.VERSION_STRING\n",
+        ),
+    )
+
+    monkeypatch.setattr(build_backend, "download_upstream_archive", lambda: payload)
+    monkeypatch.setattr(
+        build_backend.tempfile,
+        "TemporaryDirectory",
+        lambda **_: _FixedTemporaryDirectory(tmp_path / "build"),
+    )
+    monkeypatch.setattr(build_backend, "_BUILD_DIRECTORY", None)
+    monkeypatch.setattr(build_backend, "_PREPARED_SOURCE", None)
+
+    source_root = build_backend.prepare_upstream_source()
+    frozen_path = source_root / "searx/version_frozen.py"
+
+    assert frozen_path.is_file()
+    namespace: dict[str, str] = {}
+    exec(frozen_path.read_text(encoding="utf-8"), namespace)
+    assert namespace["VERSION_TAG"] == "0.0.0+c19d86faa"
+    assert namespace["GIT_BRANCH"] == "c19d86faa"
+
+
+class _FixedTemporaryDirectory:
+    def __init__(self, path: Path) -> None:
+        self.name = str(path)
+        path.mkdir(parents=True, exist_ok=True)
+
+    def cleanup(self) -> None:
+        return None
+
+
+def test_built_wheel_contains_frozen_version_module(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source_root = tmp_path / "source"
+    package_root = source_root / "searx"
+    package_root.mkdir(parents=True)
+    (package_root / "__init__.py").write_text("", encoding="utf-8")
+    (package_root / "version.py").write_text(
+        "import importlib\n"
+        "vf = importlib.import_module('searx.version_frozen')\n"
+        "VERSION_TAG = vf.VERSION_TAG\n",
+        encoding="utf-8",
+    )
+    (source_root / "setup.py").write_text(
+        "from setuptools import find_packages, setup\n"
+        "from searx.version import VERSION_TAG\n"
+        "setup(name='searxng', version=VERSION_TAG, packages=find_packages())\n",
+        encoding="utf-8",
+    )
+    build_backend.write_frozen_version(source_root)
+    monkeypatch.setattr(
+        build_backend, "prepare_upstream_source", lambda: source_root
+    )
+
+    wheel_directory = tmp_path / "wheel"
+    wheel_directory.mkdir()
+    wheel_name = build_backend.build_wheel(str(wheel_directory))
+
+    with zipfile.ZipFile(wheel_directory / wheel_name) as wheel:
+        names = set(wheel.namelist())
+    assert "searx/version_frozen.py" in names

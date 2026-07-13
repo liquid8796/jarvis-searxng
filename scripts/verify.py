@@ -9,10 +9,12 @@ from typing import Any
 import yaml
 
 PINNED_COMMIT = "c19d86faa"
+PROJECT_VERSION = "1.0.4"
 LOCAL_SEARXNG_REQUIREMENT = "searxng @ ./vendor/searxng_source"
 REQUIRED_FILES = (
     "api/index.py",
     "api/runtime.py",
+    "api/version.py",
     "config/settings.yml",
     "requirements.txt",
     "vendor/searxng_source/pyproject.toml",
@@ -114,6 +116,10 @@ def _verify_requirements(root: Path, errors: list[str]) -> None:
     if upstream_ref != PINNED_COMMIT:
         errors.append(f"build wrapper must pin upstream commit {PINNED_COMMIT}")
 
+    backend_source = backend_path.read_text(encoding="utf-8")
+    if "write_frozen_version(source_root)" not in backend_source:
+        errors.append("build wrapper must generate searx.version_frozen")
+
     pyproject = (root / "vendor/searxng_source/pyproject.toml").read_text(
         encoding="utf-8"
     )
@@ -138,7 +144,7 @@ def _verify_vercel(config: dict[str, Any], errors: list[str]) -> None:
 
 
 def _verify_python_syntax(root: Path, errors: list[str]) -> None:
-    for relative_path in ("api/index.py", "api/runtime.py"):
+    for relative_path in ("api/index.py", "api/runtime.py", "api/version.py"):
         path = root / relative_path
         try:
             ast.parse(path.read_text(encoding="utf-8"), filename=relative_path)
@@ -159,6 +165,12 @@ def verify_project(root: Path) -> list[str]:
     _verify_requirements(root, errors)
     _verify_vercel(_read_json(root / "vercel.json", errors), errors)
     _verify_python_syntax(root, errors)
+
+    project_version = _read_assigned_string(
+        root / "api/version.py", "PROJECT_VERSION", errors
+    )
+    if project_version != PROJECT_VERSION:
+        errors.append(f"project version must be {PROJECT_VERSION}")
 
     if (root / ".python-version").read_text(encoding="utf-8").strip() != "3.13":
         errors.append(".python-version must be 3.13")

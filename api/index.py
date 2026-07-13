@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from api.runtime import configure_environment
+from api.version import PROJECT_VERSION
 
 configure_environment()
 
@@ -11,7 +12,11 @@ from searx.webapp import app as app  # noqa: E402
 
 @app.get("/healthz")
 def healthz() -> tuple[dict[str, str], int]:
-    return {"service": "searxng-vercel", "status": "ok"}, 200
+    return {
+        "service": "searxng-vercel",
+        "status": "ok",
+        "version": PROJECT_VERSION,
+    }, 200
 
 
 @app.after_request

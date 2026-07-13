@@ -62,7 +62,11 @@ def test_healthz_reports_service_status(monkeypatch: pytest.MonkeyPatch) -> None
     payload, status = fake_app.routes["/healthz"]()
 
     assert status == 200
-    assert payload == {"service": "searxng-vercel", "status": "ok"}
+    assert payload == {
+        "service": "searxng-vercel",
+        "status": "ok",
+        "version": "1.0.4",
+    }
 
 
 def test_after_request_disables_response_caching(monkeypatch: pytest.MonkeyPatch) -> None:

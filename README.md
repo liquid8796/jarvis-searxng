@@ -2,6 +2,8 @@
 
 Project thử nghiệm để chạy **SearXNG trực tiếp trong Vercel Python Function** dưới dạng ứng dụng WSGI stateless.
 
+**Phiên bản project hiện tại: `1.0.4`.**
+
 > Đây không phải mô hình triển khai chính thức được SearXNG khuyến nghị. Không nên dùng làm public instance có lưu lượng lớn. Một số search engine có thể chặn IP datacenter của Vercel, cold start có thể chậm và function không có state dùng chung.
 
 ## Kiến trúc
@@ -23,6 +25,7 @@ Các điểm chính:
 - Hỗ trợ kết quả `html` và `json`.
 - SearXNG được pin tại commit `c19d86faa`.
 - `vendor/searxng_source` là PEP 517 build-wrapper. Wrapper tải source archive đúng commit rồi delegate quá trình build wheel cho upstream `setuptools` backend. Cách này tránh phụ thuộc vào việc tùy biến install command của Vercel.
+- Trong lúc build, wrapper sinh `searx/version_frozen.py` và đưa file này vào wheel. Runtime serverless vì vậy không cần executable `git` để xác định phiên bản SearXNG.
 
 ## Deploy lên Vercel
 
@@ -63,8 +66,9 @@ Bấm **Deploy**. Trong build log, Vercel sẽ:
 2. Resolve dependency `searxng @ ./vendor/searxng_source`; tên phân phối được khai báo rõ để khớp metadata wheel upstream.
 3. Build local package `vendor/searxng_source`.
 4. Wrapper tải SearXNG tại commit đã pin.
-5. Build và cài wheel cùng dependencies.
-6. Bundle Python Function với `config/settings.yml`.
+5. Wrapper sinh metadata phiên bản cố định `searx/version_frozen.py`.
+6. Build và cài wheel cùng dependencies.
+7. Bundle Python Function với `config/settings.yml`.
 
 ## Kiểm tra sau deploy
 
@@ -79,7 +83,8 @@ Kết quả mong đợi:
 ```json
 {
   "service": "searxng-vercel",
-  "status": "ok"
+  "status": "ok",
+  "version": "1.0.4"
 }
 ```
 
@@ -143,6 +148,8 @@ python -m compileall -q api scripts vendor
 - Python 3.13.
 - Commit SearXNG đã pin.
 - PEP 517 local build-wrapper.
+- Metadata phiên bản frozen để runtime không gọi `git`.
+- Phiên bản project trong `api/version.py`.
 - Cấu hình stateless/safe cho serverless.
 - Rewrite, `maxDuration` và `includeFiles` của Vercel.
 - Cú pháp Python, YAML và JSON.
@@ -194,6 +201,12 @@ https://codeload.github.com/searxng/searxng/tar.gz/c19d86faa
 
 Nếu mạng build chặn GitHub, deploy sẽ không thể dựng dependency SearXNG.
 
+### `FUNCTION_INVOCATION_FAILED` kèm `No module named searx.version_frozen` hoặc `git` không tồn tại
+
+Lỗi này xuất hiện khi wheel SearXNG không chứa metadata phiên bản cố định. Khi import `searx.version`, upstream sẽ fallback sang lệnh `git show`; Vercel Python runtime không cung cấp executable `git`, nên function dừng trước khi WSGI app được tạo.
+
+Từ project version `1.0.4`, build-wrapper tự sinh `searx/version_frozen.py` trước khi build wheel. Sau khi cập nhật source, cần tạo deployment mới; redeploy deployment cũ không thay đổi wheel đã bundle.
+
 ### `SEARXNG_SECRET is required`
 
 Thêm `SEARXNG_SECRET` trong Vercel Project Settings và redeploy. Thay đổi environment variable không áp dụng ngược cho deployment cũ.
@@ -209,6 +222,15 @@ Mở Vercel Function Logs và kiểm tra:
 ### UI chạy nhưng không có kết quả
 
 Thường do engine timeout, CAPTCHA, rate-limit hoặc IP datacenter bị chặn. Kiểm tra logs và giảm số engine được bật trong `config/settings.yml` nếu cần.
+
+## Lịch sử phiên bản
+
+### `1.0.4`
+
+- Fix runtime `FUNCTION_INVOCATION_FAILED` do thiếu `searx.version_frozen`.
+- Sinh metadata phiên bản cố định vào SearXNG wheel để runtime không gọi `git`.
+- Bổ sung version vào `/healthz`.
+- Bổ sung regression test xác nhận wheel thực tế chứa `searx/version_frozen.py`.
 
 ## Nâng cấp SearXNG
 

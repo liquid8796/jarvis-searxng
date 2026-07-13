@@ -10,6 +10,7 @@ def write_valid_project(root: Path) -> None:
     files = {
         "api/index.py": "app = object()\n",
         "api/runtime.py": "def configure_environment():\n    return None\n",
+        "api/version.py": 'PROJECT_VERSION = "1.0.4"\n',
         "config/settings.yml": """
 use_default_settings: true
 general:
@@ -35,6 +36,8 @@ backend-path = ["."]
         "vendor/searxng_source/build_backend.py": (
             'UPSTREAM_REF = "c19d86faa"\n'
             'UPSTREAM_ARCHIVE_URL = "https://codeload.github.com/searxng/searxng/tar.gz/" + UPSTREAM_REF\n'
+            'source_root = object()\n'
+            'write_frozen_version(source_root)\n'
         ),
         "vercel.json": json.dumps(
             {
@@ -155,3 +158,14 @@ def test_verify_project_rejects_unnamed_local_wrapper_requirement(
     errors = verify_project(tmp_path)
 
     assert any("declare distribution name searxng" in error for error in errors)
+
+
+def test_verify_project_rejects_stale_project_version(tmp_path: Path) -> None:
+    write_valid_project(tmp_path)
+    (tmp_path / "api/version.py").write_text(
+        'PROJECT_VERSION = "1.0.3"\n', encoding="utf-8"
+    )
+
+    errors = verify_project(tmp_path)
+
+    assert any("project version must be 1.0.4" in error for error in errors)
