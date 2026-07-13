@@ -25,7 +25,7 @@ server:
 valkey:
   url: false
 """.lstrip(),
-        "requirements.txt": "./vendor/searxng_source\n",
+        "requirements.txt": "searxng @ ./vendor/searxng_source\n",
         "vendor/searxng_source/pyproject.toml": """
 [build-system]
 requires = ["setuptools", "PyYAML==6.0.3", "msgspec==0.21.1"]
@@ -141,3 +141,17 @@ def test_verify_project_requires_local_build_wrapper(tmp_path: Path) -> None:
     errors = verify_project(tmp_path)
 
     assert any("local SearXNG build wrapper" in error for error in errors)
+
+
+def test_verify_project_rejects_unnamed_local_wrapper_requirement(
+    tmp_path: Path,
+) -> None:
+    write_valid_project(tmp_path)
+    (tmp_path / "requirements.txt").write_text(
+        "./vendor/searxng_source\n",
+        encoding="utf-8",
+    )
+
+    errors = verify_project(tmp_path)
+
+    assert any("declare distribution name searxng" in error for error in errors)

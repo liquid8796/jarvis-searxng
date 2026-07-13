@@ -60,10 +60,11 @@ SEARXNG_SECRET=<giá trị vừa tạo>
 Bấm **Deploy**. Trong build log, Vercel sẽ:
 
 1. Đọc `requirements.txt`.
-2. Build local package `vendor/searxng_source`.
-3. Wrapper tải SearXNG tại commit đã pin.
-4. Build và cài wheel cùng dependencies.
-5. Bundle Python Function với `config/settings.yml`.
+2. Resolve dependency `searxng @ ./vendor/searxng_source`; tên phân phối được khai báo rõ để khớp metadata wheel upstream.
+3. Build local package `vendor/searxng_source`.
+4. Wrapper tải SearXNG tại commit đã pin.
+5. Build và cài wheel cùng dependencies.
+6. Bundle Python Function với `config/settings.yml`.
 
 ## Kiểm tra sau deploy
 

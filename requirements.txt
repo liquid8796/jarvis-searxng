@@ -1,2 +1,2 @@
-# The local PEP 517 backend downloads and builds the pinned upstream source.
-./vendor/searxng_source
+# The explicit distribution name must match the upstream wheel metadata.
+searxng @ ./vendor/searxng_source

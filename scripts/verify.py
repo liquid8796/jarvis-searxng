@@ -9,6 +9,7 @@ from typing import Any
 import yaml
 
 PINNED_COMMIT = "c19d86faa"
+LOCAL_SEARXNG_REQUIREMENT = "searxng @ ./vendor/searxng_source"
 REQUIRED_FILES = (
     "api/index.py",
     "api/runtime.py",
@@ -102,9 +103,10 @@ def _verify_requirements(root: Path, errors: list[str]) -> None:
         for line in requirements_path.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.lstrip().startswith("#")
     }
-    if "./vendor/searxng_source" not in requirement_lines:
+    if LOCAL_SEARXNG_REQUIREMENT not in requirement_lines:
         errors.append(
-            "requirements.txt must install the local SearXNG build wrapper"
+            "requirements.txt must install the local SearXNG build wrapper "
+            "and declare distribution name searxng"
         )
 
     backend_path = root / "vendor/searxng_source/build_backend.py"
